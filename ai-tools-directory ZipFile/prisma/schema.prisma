@@ -1,0 +1,394 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum PricingModel {
+  FREE
+  FREEMIUM
+  SUBSCRIPTION
+  ONE_TIME
+  USAGE_BASED
+  ENTERPRISE
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  BRONZE
+  SILVER
+  GOLD
+}
+
+enum SubscriptionTier {
+  FREE
+  PRO
+}
+
+enum VendorTier {
+  FREE
+  VERIFIED
+  FEATURED
+  PREMIUM
+}
+
+enum CompanySize {
+  SOLO
+  SMALL
+  MEDIUM
+  LARGE
+  ENTERPRISE
+}
+
+// Main Models
+model Tool {
+  id                    String             @id @default(cuid())
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  
+  // Basic Information
+  name                  String
+  slug                  String             @unique
+  tagline               String
+  description           String             @db.Text
+  websiteUrl            String
+  logoUrl               String
+  screenshots           String[]
+  demoVideoUrl          String?
+  
+  // Categories & Targeting
+  primaryCategoryId     String
+  primaryCategory       Category           @relation("PrimaryCategory", fields: [primaryCategoryId], references: [id])
+  categories            Category[]         @relation("ToolCategories")
+  targetIndustries      String[]
+  targetRoles           String[]
+  companySizeFit        CompanySize[]
+  useCases              Json[]             // Array of {title, description}
+  
+  // Pricing
+  pricingModel          PricingModel
+  startingPrice         Float?
+  pricingDetails        Json[]             // Array of pricing tiers
+  hasFreeVersion        Boolean            @default(false)
+  hasFreeTrial          Boolean            @default(false)
+  freeTrialDays         Int?
+  
+  // Features
+  features              Json[]             // Array of {name, description, plan}
+  aiCapabilities        String[]
+  integrations          Integration[]      @relation("ToolIntegrations")
+  
+  // Ratings & Reviews
+  ourRating             Float              @default(0)
+  ourRatingBreakdown    Json               // {easeOfUse, features, valueForMoney, support, overall}
+  communityRatingAvg    Float              @default(0)
+  communityRatingCount  Int                @default(0)
+  reviews               Review[]
+  
+  // Verification
+  verificationStatus    VerificationStatus @default(UNVERIFIED)
+  lastVerifiedAt        DateTime?
+  lastTestedAt          DateTime?
+  testedBy              String?
+  
+  // Expert Take
+  expertTakePros        String[]
+  expertTakeCons        String[]
+  expertTakeVerdict     String             @db.Text
+  bestFor               String             @db.Text
+  notRecommendedFor     String             @db.Text
+  
+  // SEO & Analytics
+  seoTitle              String
+  seoDescription        String
+  monthlyVisitsEstimate Int?
+  popularityScore       Int                @default(0)
+  
+  // Status
+  isPublished           Boolean            @default(false)
+  isFeatured            Boolean            @default(false)
+  
+  // Relations
+  vendorListing         VendorListing?
+  affiliateLinks        AffiliateLink[]
+  dealAlerts            DealAlert[]
+  userSaves             UserToolSave[]
+  comparisons           ToolComparison[]   @relation("ComparisonTools")
+  
+  @@index([slug])
+  @@index([primaryCategoryId])
+  @@index([isPublished])
+  @@index([isFeatured])
+  @@index([popularityScore])
+}
+
+model Category {
+  id                String     @id @default(cuid())
+  name              String
+  slug              String     @unique
+  description       String     @db.Text
+  icon              String
+  colorTheme        String
+  
+  // Hierarchy
+  parentCategoryId  String?
+  parentCategory    Category?  @relation("CategoryHierarchy", fields: [parentCategoryId], references: [id])
+  subcategories     Category[] @relation("CategoryHierarchy")
+  
+  // SEO
+  seoTitle          String
+  seoDescription    String
+  
+  // Settings
+  displayOrder      Int        @default(0)
+  isActive          Boolean    @default(true)
+  
+  // Relations
+  primaryTools      Tool[]     @relation("PrimaryCategory")
+  tools             Tool[]     @relation("ToolCategories")
+  
+  @@index([slug])
+  @@index([parentCategoryId])
+  @@index([isActive])
+}
+
+model Review {
+  id                  String      @id @default(cuid())
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  
+  // Relations
+  toolId              String
+  tool                Tool        @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  userId              String
+  user                User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Review Content
+  rating              Int         // 1-5
+  title               String
+  reviewText          String      @db.Text
+  
+  // Context
+  useCase             String
+  industry            String
+  companySize         CompanySize
+  usageDuration       String
+  pros                String[]
+  cons                String[]
+  
+  // Verification
+  isVerifiedPurchase  Boolean     @default(false)
+  verificationProof   String?
+  
+  // Engagement
+  helpfulVotes        Int         @default(0)
+  notHelpfulVotes     Int         @default(0)
+  
+  // Moderation
+  isApproved          Boolean     @default(false)
+  isFlagged           Boolean     @default(false)
+  
+  @@index([toolId])
+  @@index([userId])
+  @@index([isApproved])
+  @@index([createdAt])
+}
+
+model User {
+  id                    String           @id @default(cuid())
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  
+  // Authentication
+  email                 String           @unique
+  emailVerified         DateTime?
+  password              String?
+  image                 String?
+  
+  // Profile
+  name                  String
+  avatarUrl             String?
+  industry              String?
+  role                  String?
+  companySize           CompanySize?
+  
+  // Preferences
+  interests             String[]
+  painPoints            String[]
+  toolsCurrentlyUsing   String[]
+  
+  // Subscription
+  subscriptionTier      SubscriptionTier @default(FREE)
+  subscriptionEndsAt    DateTime?
+  
+  // Onboarding
+  onboardingCompleted   Boolean          @default(false)
+  
+  // Relations
+  reviews               Review[]
+  savedTools            UserToolSave[]
+  comparisons           ToolComparison[]
+  accounts              Account[]
+  sessions              Session[]
+  
+  @@index([email])
+}
+
+model UserToolSave {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  toolId    String
+  tool      Tool     @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  
+  notes     String?  @db.Text
+  
+  @@unique([userId, toolId])
+  @@index([userId])
+  @@index([toolId])
+}
+
+model ToolComparison {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name      String
+  toolIds   String[]
+  tools     Tool[]   @relation("ComparisonTools")
+  criteria  Json     // Custom comparison criteria
+  
+  @@index([userId])
+}
+
+model Integration {
+  id       String @id @default(cuid())
+  name     String
+  slug     String @unique
+  logoUrl  String
+  category String
+  
+  tools    Tool[] @relation("ToolIntegrations")
+  
+  @@index([slug])
+  @@index([category])
+}
+
+model VendorListing {
+  id                  String      @id @default(cuid())
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  
+  toolId              String      @unique
+  tool                Tool        @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  
+  tier                VendorTier  @default(FREE)
+  vendorEmail         String
+  vendorName          String
+  
+  subscriptionEndsAt  DateTime?
+  analyticsEnabled    Boolean     @default(false)
+  canPostDeals        Boolean     @default(false)
+  canRespondReviews   Boolean     @default(false)
+  isFeatured          Boolean     @default(false)
+  
+  @@index([toolId])
+  @@index([tier])
+}
+
+model AffiliateLink {
+  id              String   @id @default(cuid())
+  createdAt       DateTime @default(now())
+  
+  toolId          String
+  tool            Tool     @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  
+  affiliateUrl    String
+  trackingCode    String
+  commissionRate  Float?
+  network         String?
+  
+  clicks          Int      @default(0)
+  conversions     Int      @default(0)
+  revenue         Float    @default(0)
+  
+  isActive        Boolean  @default(true)
+  
+  @@index([toolId])
+  @@index([isActive])
+}
+
+model DealAlert {
+  id               String   @id @default(cuid())
+  createdAt        DateTime @default(now())
+  
+  toolId           String
+  tool             Tool     @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  
+  title            String
+  description      String   @db.Text
+  discountPercent  Int?
+  promoCode        String?
+  
+  startDate        DateTime
+  endDate          DateTime
+  termsConditions  String?  @db.Text
+  
+  isActive         Boolean  @default(true)
+  
+  @@index([toolId])
+  @@index([isActive])
+  @@index([endDate])
+}
+
+// NextAuth Models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
