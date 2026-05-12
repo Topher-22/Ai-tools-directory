@@ -170,6 +170,7 @@ GITHUB_CLIENT_SECRET
 - [x] Additional pages
 - [x] Special features
 - [x] Admin panel
+- [Nick Launches](https://nicklaunches.com/) - Launch platform for builders, AI startups, and SaaS founders to get discovered and earn a permanent dofollow backlink.
 
 ## 📄 License
 
