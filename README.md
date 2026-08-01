@@ -171,6 +171,10 @@ GITHUB_CLIENT_SECRET
 - [x] Special features
 - [x] Admin panel
 
+## 🔗 Related Directories
+
+- [SaaSCity](https://saascity.io/) - Gamified SaaS directory where every listing becomes a building on a live isometric city map.
+
 ## 📄 License
 
 MIT License - see LICENSE file
